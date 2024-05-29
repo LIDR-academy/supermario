@@ -25,14 +25,17 @@ function preload() {
     this.load.spritesheet('idle', 'assets/images/Mask Dude/Idle (32x32).png', { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet('jump', 'assets/images/Mask Dude/Jump (32x32).png', { frameWidth: 32, frameHeight: 32 });
     this.load.image('coin', 'assets/images/coin.png');
+    this.load.spritesheet('enemy', 'assets/images/enemy (32x32).png', { frameWidth: 32, frameHeight: 32 }); // Load enemy sprite
 }
 
 var player;
 var cursors;
 var platforms;
 var coins;
+var enemies;
 var score = 0;
 var scoreText;
+var gameOver = false;
 
 function create() {
     this.add.image(400, 300, 'sky');
@@ -94,9 +97,30 @@ function create() {
     this.physics.add.overlap(player, coins, collectCoin, null, this);
 
     scoreText = this.add.text(16, 16, 'score: 0', { fontSize: '32px', fill: '#000' });
+
+    // Create enemies group
+    enemies = this.physics.add.group({
+        key: 'enemy',
+        repeat: 5,
+        setXY: { x: 100, y: 0, stepX: 150 }
+    });
+
+    enemies.children.iterate(function (child) {
+        child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+        child.setVelocityX(Phaser.Math.Between(-100, 100)); // Set random horizontal velocity
+        child.setCollideWorldBounds(true); // Ensure enemies stay within the world bounds
+        child.setBounce(1); // Make enemies bounce off the world bounds
+    });
+
+    this.physics.add.collider(enemies, platforms);
+    this.physics.add.overlap(player, enemies, hitEnemy, null, this);
 }
 
 function update() {
+    if (gameOver) {
+        return;
+    }
+
     if (cursors.left.isDown) {
         player.setVelocityX(-160);
         player.anims.play('left', true);
@@ -112,6 +136,15 @@ function update() {
         player.setVelocityY(-330);
         player.anims.play('jump', true);
     }
+
+    // Update enemy movement
+    enemies.children.iterate(function (child) {
+        if (child.body.blocked.left) {
+            child.setVelocityX(Phaser.Math.Between(50, 100)); // Change direction to right
+        } else if (child.body.blocked.right) {
+            child.setVelocityX(Phaser.Math.Between(-100, -50)); // Change direction to left
+        }
+    });
 }
 
 function collectCoin(player, coin) {
@@ -119,4 +152,11 @@ function collectCoin(player, coin) {
 
     score += 10;
     scoreText.setText('Score: ' + score);
+}
+
+function hitEnemy(player, enemy) {
+    this.physics.pause(); // Stop all physics interactions
+    player.setTint(0xff0000); // Change player color to red
+    player.anims.play('turn'); // Play the turn animation
+    gameOver = true; // Set game over flag
 }
